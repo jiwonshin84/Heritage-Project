@@ -1,6 +1,6 @@
 # app.py
 # ---------------------------------------
-# 영천 문화유산 AI 분석 플랫폼 (Gemini 포함 최종판)
+# 영천 문화유산 AI 분석 플랫폼 (Gemini API 내장판)
 # Streamlit Cloud 배포용
 # ---------------------------------------
 
@@ -13,6 +13,13 @@ from folium.plugins import HeatMap
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 import google.generativeai as genai
+
+# ---------------------------------------
+# Gemini API KEY 직접 입력
+# ---------------------------------------
+GEMINI_API_KEY = "AIzaSyCeNS_TTBIU6LmchWVdpki-Z9k0-MbKL6E"
+
+genai.configure(api_key=GEMINI_API_KEY)
 
 # ---------------------------------------
 # 페이지 설정
@@ -47,19 +54,6 @@ h1, h2, h3 {
 # ---------------------------------------
 st.title("🏛️ 영천 문화유산 AI 분석 플랫폼")
 st.caption("문화재청 OPEN API + AI 군집분석 + Gemini 설명형 AI")
-
-# ---------------------------------------
-# Gemini API Key
-# ---------------------------------------
-with st.sidebar:
-    st.header("⚙️ 설정")
-    api_key = st.text_input(
-        "Gemini API Key 입력",
-        type="password"
-    )
-
-    if api_key:
-        genai.configure(api_key=api_key)
 
 # ---------------------------------------
 # 데이터 로드
@@ -104,8 +98,8 @@ if menu == "홈":
     st.write("""
     본 플랫폼은 문화재청 OPEN API 데이터를 활용하여  
     영천 지역 문화유산을 분석하고 지도 시각화 및 AI 군집분석을 수행합니다.
-    
-    또한 Gemini AI를 활용하여 문화재 설명과 정책 제안까지 제공합니다.
+
+    Gemini AI를 활용하여 문화재 설명과 정책 제안까지 제공합니다.
     """)
 
 # ---------------------------------------
@@ -139,6 +133,7 @@ elif menu == "문화재 지도":
     )
 
     for _, row in df.iterrows():
+
         popup = f"""
         <b>{row['문화재명']}</b><br>
         종목: {row['국가유산종목']}<br>
@@ -173,7 +168,7 @@ elif menu == "HeatMap":
     st_folium(m, width=1300, height=700)
 
 # ---------------------------------------
-# 군집분석
+# AI 군집분석
 # ---------------------------------------
 elif menu == "AI 군집분석":
 
@@ -215,7 +210,6 @@ elif menu == "문화재 검색":
 
     if keyword:
         result = df[df["문화재명"].str.contains(keyword, na=False)]
-
         st.dataframe(result)
 
 # ---------------------------------------
@@ -232,24 +226,21 @@ elif menu == "Gemini 챗봇":
 
     if st.button("질문하기"):
 
-        if not api_key:
-            st.warning("Gemini API Key를 입력하세요.")
-        else:
-            model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-1.5-flash")
 
-            prompt = f"""
-            너는 문화재 데이터 분석 전문가야.
+        prompt = f"""
+        너는 문화재 데이터 분석 전문가야.
 
-            영천 문화재 데이터가 있다.
-            총 문화재 수: {len(df)}
-            주요 종목: {', '.join(df['국가유산종목'].unique()[:10])}
+        영천 문화재 데이터가 있다.
+        총 문화재 수: {len(df)}
+        주요 종목: {', '.join(df['국가유산종목'].unique()[:10])}
 
-            사용자 질문:
-            {question}
+        사용자 질문:
+        {question}
 
-            학생 발표 수준으로 쉽게 설명해줘.
-            """
+        학생 발표 수준으로 쉽게 설명해줘.
+        """
 
-            response = model.generate_content(prompt)
+        response = model.generate_content(prompt)
 
-            st.success(response.text)
+        st.success(response.text)

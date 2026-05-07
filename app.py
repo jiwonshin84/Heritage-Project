@@ -7,34 +7,31 @@ import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-# ============================================
-# 기상청 지상(종관, ASOS) 시간자료 조회서비스
-# 전날 최신 자료 조회
-# ============================================
 
+# ============================================
+# API KEY
+# ============================================
 
 SERVICE_KEY = "feb2bfabd299d5d05e89c7aec49ba7e706112603e76549a92e868bd86ec60323"
 
+# ============================================
+# 1. 기상청 ASOS 전날 최신 기상자료
+# ============================================
 
-URL = (
+ASOS_URL = (
     "https://apis.data.go.kr/"
     "1360000/AsosHourlyInfoService/getWthrDataList"
 )
 
-
 # 영천 관측소
 STN_ID = "281"
 
-# ============================================
-# 한국시간 기준
-# ============================================
-
+# 한국시간
 now = datetime.now(ZoneInfo("Asia/Seoul"))
 
-# 전날 날짜
+# 전날
 yesterday = now - timedelta(days=1)
 
-# 전날 마지막 시간(23시)
 base_date = yesterday.strftime("%Y%m%d")
 base_hour = "23"
 
@@ -43,10 +40,10 @@ print("조회 날짜:", base_date)
 print("조회 시간:", base_hour)
 
 # ============================================
-# API 요청 파라미터
+# ASOS 요청 파라미터
 # ============================================
 
-params = {
+asos_params = {
     "serviceKey": SERVICE_KEY,
     "pageNo": "1",
     "numOfRows": "1",
@@ -62,31 +59,39 @@ params = {
     "endDt": base_date,
     "endHh": base_hour,
 
-    # 관측소
+    # 영천 관측소
     "stnIds": STN_ID
 }
 
 # ============================================
-# API 요청
+# 기본값
 # ============================================
 
-response = requests.get(
-    URL,
-    params=params,
-    timeout=30
-)
+tm = "-"
 
-print("응답코드:", response.status_code)
+temp = "-"
+humidity = "-"
 
-data = response.json()
-
-print(data)
+rainfall = "-"
+wind_speed = "-"
 
 # ============================================
-# 데이터 추출
+# ASOS API 요청
 # ============================================
 
 try:
+
+    response = requests.get(
+        ASOS_URL,
+        params=asos_params,
+        timeout=30
+    )
+
+    print("ASOS 응답코드:", response.status_code)
+
+    data = response.json()
+
+    print(data)
 
     item = data["response"]["body"]["items"]["item"][0]
 
@@ -105,9 +110,115 @@ try:
     # 풍속
     wind_speed = item["ws"]
 
+    print()
+    print("===== 전날 최신 기상 데이터 =====")
+    print("관측시각:", tm)
+
+    print("기온:", temp, "°C")
+    print("습도:", humidity, "%")
+
+    print("강수량:", rainfall, "mm")
+    print("풍속:", wind_speed, "m/s")
+
 except Exception as e:
 
-    print("데이터 조회 실패")
+    print("기상 데이터 조회 실패")
+    print(e)
+
+# ============================================
+# 2. 대기오염 최신 데이터
+# ============================================
+
+AIR_URL = (
+    "https://apis.data.go.kr/"
+    "B552584/ArpltnInforInqireSvc/"
+    "getCtprvnRltmMesureDnsty"
+)
+
+# 기본값
+pm10 = "-"
+pm25 = "-"
+
+o3 = "-"
+no2 = "-"
+
+co = "-"
+so2 = "-"
+
+data_time = "-"
+
+# ============================================
+# 대기오염 API 요청
+# ============================================
+
+try:
+
+    air_params = {
+        "serviceKey": SERVICE_KEY,
+        "returnType": "json",
+
+        "numOfRows": "100",
+        "pageNo": "1",
+
+        # 경북
+        "sidoName": "경북",
+
+        "ver": "1.0"
+    }
+
+    air_response = requests.get(
+        AIR_URL,
+        params=air_params,
+        timeout=30
+    )
+
+    print("대기오염 응답코드:", air_response.status_code)
+
+    air_data = air_response.json()
+
+    print(air_data)
+
+    items = air_data["response"]["body"]["items"]
+
+    # 영천 측정소 찾기
+    target = None
+
+    for item in items:
+
+        if "영천" in item["stationName"]:
+            target = item
+            break
+
+    if target:
+
+        data_time = target["dataTime"]
+
+        pm10 = target["pm10Value"]
+        pm25 = target["pm25Value"]
+
+        o3 = target["o3Value"]
+        no2 = target["no2Value"]
+
+        co = target["coValue"]
+        so2 = target["so2Value"]
+
+        print()
+        print("===== 최신 대기오염 데이터 =====")
+
+        print("측정시각:", data_time)
+
+        print("PM10:", pm10)
+        print("PM2.5:", pm25)
+
+        print("O3:", o3)
+        print("NO2:", no2)
+
+        print("CO:", co)
+        print("SO2:", so2)
+
+except Exception as e:
+
+    print("대기오염 데이터 조회 실패")
     print(e)
 
 
@@ -142,50 +253,80 @@ st.markdown("""
 
 st.divider()
 
-# ==========================================================
-# 주요 통계 카드
-# ==========================================================
-st.subheader("📊 핵심 분석 지표")
+# ============================================
+# 상단 환경 대시보드
+# ============================================
 
-c1, c2, c3, c4, c5, c6 = st.columns(6)
+st.subheader("📊 영천 문화재 환경 현황")
 
-# 문화재 수
-with c1:
+# 3개 영역
+left, center, right = st.columns([1.3, 2.2, 1.2])
+
+# ============================================
+# 1열 : 기상 정보
+# ============================================
+
+with left:
+
+    st.markdown("### 🌦 기상 환경")
+
     st.metric(
-        "🏛 분석 문화재 수",
-        len(df)
-    )
-
-# 전날 기온
-with c2:
-    st.metric(
-        "🌡 전날 기온",
+        "🌡 기온",
         f"{temp} °C"
     )
 
-# 전날 습도
-with c3:
     st.metric(
-        "💧 전날 습도",
+        "💧 습도",
         f"{humidity} %"
     )
 
-# 전날 강수량
-with c4:
     st.metric(
-        "🌧 전날 강수량",
+        "🌧 강수량",
         f"{rainfall} mm"
     )
 
-# 전날 풍속
-with c5:
     st.metric(
-        "💨 전날 풍속",
+        "💨 풍속",
         f"{wind_speed} m/s"
     )
 
-# 고위험 문화재
-with c6:
+# ============================================
+# 2열 : 대기오염 정보
+# ============================================
+
+with center:
+
+    st.markdown("### 🌫 대기오염 현황")
+
+    a1, a2, a3 = st.columns(3)
+
+    with a1:
+        st.metric("PM10", pm10)
+        st.metric("O₃", o3)
+
+    with a2:
+        st.metric("PM2.5", pm25)
+        st.metric("NO₂", no2)
+
+    with a3:
+        st.metric("CO", co)
+        st.metric("SO₂", so2)
+
+    st.caption(f"⏱ 측정 시각: {data_time}")
+
+# ============================================
+# 3열 : 문화재 위험 현황
+# ============================================
+
+with right:
+
+    st.markdown("### 🏛 문화재 현황")
+
+    st.metric(
+        "분석 문화재 수",
+        f"{len(df)}개"
+    )
+
     st.metric(
         "⚠ 고위험 문화재",
         "18개"

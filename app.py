@@ -262,6 +262,42 @@ st.subheader("🌿 영천 문화재 보존 환경 현황")
 # 메인 영역
 left, center, right = st.columns([1.5, 2.2, 1.1])
 
+# 공통 카드 스타일
+card_style = """
+background-color:#f8f9fa;
+padding:24px;
+border-radius:20px;
+border:1px solid #e5e7eb;
+box-shadow:0 4px 12px rgba(0,0,0,0.06);
+height:520px;
+"""
+
+title_style = """
+font-size:28px;
+font-weight:700;
+margin-bottom:18px;
+color:#1f2937;
+"""
+
+label_style = """
+font-size:15px;
+color:#6b7280;
+margin-bottom:4px;
+"""
+
+value_style = """
+font-size:28px;
+font-weight:700;
+color:#111827;
+margin-bottom:18px;
+"""
+
+time_style = """
+font-size:13px;
+color:#9ca3af;
+margin-top:10px;
+"""
+
 # ============================================
 # 1열 : 기상 환경
 # ============================================
@@ -270,30 +306,29 @@ with left:
 
     st.markdown(
         f"""
-<div style="
-background-color:#f8f9fa;
-padding:20px;
-border-radius:18px;
-border:1px solid #e6e6e6;
-box-shadow:0 4px 10px rgba(0,0,0,0.05);
-height:100%;
-">
+<div style="{card_style}">
 
-<h3>🌦 기상 환경</h3>
+<div style="{title_style}">
+🌦 기상 환경
+</div>
 
 <hr>
 
-<p><b>🌡 기온</b> : {temp} °C</p>
+<div style="{label_style}">🌡 기온</div>
+<div style="{value_style}">{temp} °C</div>
 
-<p><b>💧 습도</b> : {humidity} %</p>
+<div style="{label_style}">💧 습도</div>
+<div style="{value_style}">{humidity} %</div>
 
-<p><b>🌧 강수량</b> : {rainfall} mm</p>
+<div style="{label_style}">🌧 강수량</div>
+<div style="{value_style}">{rainfall} mm</div>
 
-<p><b>💨 풍속</b> : {wind_speed} m/s</p>
+<div style="{label_style}">💨 풍속</div>
+<div style="{value_style}">{wind_speed} m/s</div>
 
-<br>
-
-<small>⏱ 측정 시각 : {tm}</small>
+<div style="{time_style}">
+⏱ 측정 시각 : {tm}
+</div>
 
 </div>
         """,
@@ -308,54 +343,55 @@ with center:
 
     st.markdown(
         f"""
-<div style="
-background-color:#f8f9fa;
-padding:20px;
-border-radius:18px;
-border:1px solid #e6e6e6;
-box-shadow:0 4px 10px rgba(0,0,0,0.05);
-height:100%;
-">
+<div style="{card_style}">
 
-<h3>🌫 대기오염 현황</h3>
+<div style="{title_style}">
+🌫 대기오염 현황
+</div>
 
 <hr>
 
 <div style="
 display:grid;
 grid-template-columns:1fr 1fr 1fr;
-gap:20px;
+gap:24px;
 ">
 
 <div>
-<p><b>PM10</b></p>
-<h4>{pm10}</h4>
 
-<p><b>O₃</b></p>
-<h4>{o3}</h4>
+<div style="{label_style}">PM10</div>
+<div style="{value_style}">{pm10}</div>
+
+<div style="{label_style}">O₃</div>
+<div style="{value_style}">{o3}</div>
+
 </div>
 
 <div>
-<p><b>PM2.5</b></p>
-<h4>{pm25}</h4>
 
-<p><b>NO₂</b></p>
-<h4>{no2}</h4>
+<div style="{label_style}">PM2.5</div>
+<div style="{value_style}">{pm25}</div>
+
+<div style="{label_style}">NO₂</div>
+<div style="{value_style}">{no2}</div>
+
 </div>
 
 <div>
-<p><b>CO</b></p>
-<h4>{co}</h4>
 
-<p><b>SO₂</b></p>
-<h4>{so2}</h4>
+<div style="{label_style}">CO</div>
+<div style="{value_style}">{co}</div>
+
+<div style="{label_style}">SO₂</div>
+<div style="{value_style}">{so2}</div>
+
 </div>
 
 </div>
 
-<br>
-
-<small>⏱ 측정 시각 : {data_time}</small>
+<div style="{time_style}">
+⏱ 측정 시각 : {data_time}
+</div>
 
 </div>
         """,
@@ -370,28 +406,31 @@ with right:
 
     st.markdown(
         f"""
-<div style="
-background-color:#f8f9fa;
-padding:20px;
-border-radius:18px;
-border:1px solid #e6e6e6;
-box-shadow:0 4px 10px rgba(0,0,0,0.05);
-height:100%;
-">
+<div style="{card_style}">
 
-<h3>🏛 문화재 현황</h3>
+<div style="{title_style}">
+🏛 문화재 현황
+</div>
 
 <hr>
 
-<p><b>분석 문화재 수</b></p>
+<div style="{label_style}">
+분석 문화재 수
+</div>
 
-<h2>{len(df)}개</h2>
+<div style="{value_style}">
+{len(df)}개
+</div>
 
 <br>
 
-<p><b>⚠ 고위험 문화재</b></p>
+<div style="{label_style}">
+⚠ 고위험 문화재
+</div>
 
-<h2>18개</h2>
+<div style="{value_style}">
+18개
+</div>
 
 </div>
         """,

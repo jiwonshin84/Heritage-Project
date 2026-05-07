@@ -4,7 +4,7 @@
 import streamlit as st
 import pandas as pd
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 # ============================================
@@ -16,10 +16,10 @@ SERVICE_KEY = "feb2bfabd299d5d05e89c7aec49ba7e706112603e76549a92e868bd86ec60323"
 # 영천 관측소
 STN_ID = "281"
 
-# 현재 시간
-now = datetime.now()
+# 현재시간보다 1시간 이전 사용 - 기상청 ASOS 실황은 보통 정시 기준
+base_time = datetime.now() - timedelta(hours=1)
 
-tm = now.strftime("%Y%m%d%H00")
+tm = base_time.strftime("%Y%m%d%H00")
 
 url = "https://apihub.kma.go.kr/api/typ01/url/kma_sfctm3.php"
 
@@ -66,6 +66,12 @@ try:
 except Exception as e:
     temp = "-"
     humidity = "-"
+
+
+st.write("요청 시간:", tm)
+st.write("기온:", temp)
+st.write("습도:", humidity)
+
 
 # ==========================================================
 # 페이지 설정

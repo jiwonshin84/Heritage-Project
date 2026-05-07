@@ -225,13 +225,13 @@ for idx, row in df.iterrows():
 
     iframe = folium.IFrame(
         html=popup_html,
-        width=290,
-        height=360
+        width=380,
+        height=520
     )
 
     popup = folium.Popup(
         iframe,
-        max_width=320
+        max_width=420
     )
 
     # =================================================

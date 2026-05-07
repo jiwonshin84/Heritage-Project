@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 # API KEY
 # ============================================
 
-SERVICE_KEY = "YOUR_SERVICE_KEY"
+SERVICE_KEY = "feb2bfabd299d5d05e89c7aec49ba7e706112603e76549a92e868bd86ec60323"
 
 # ============================================
 # 1. 기상청 ASOS 전날 최신 기상자료
@@ -35,6 +35,10 @@ yesterday = now - timedelta(days=1)
 base_date = yesterday.strftime("%Y%m%d")
 base_hour = "23"
 
+print("현재 한국시간:", now)
+print("조회 날짜:", base_date)
+print("조회 시간:", base_hour)
+
 # ============================================
 # ASOS 요청 파라미터
 # ============================================
@@ -48,12 +52,14 @@ asos_params = {
     "dataCd": "ASOS",
     "dateCd": "HR",
 
+    # 전날 23시 데이터
     "startDt": base_date,
     "startHh": base_hour,
 
     "endDt": base_date,
     "endHh": base_hour,
 
+    # 영천 관측소
     "stnIds": STN_ID
 }
 
@@ -62,8 +68,10 @@ asos_params = {
 # ============================================
 
 tm = "-"
+
 temp = "-"
 humidity = "-"
+
 rainfall = "-"
 wind_speed = "-"
 
@@ -79,20 +87,43 @@ try:
         timeout=30
     )
 
+    print("ASOS 응답코드:", response.status_code)
+
     data = response.json()
+
+    print(data)
 
     item = data["response"]["body"]["items"]["item"][0]
 
+    # 관측 시각
     tm = item["tm"]
 
+    # 기온
     temp = item["ta"]
+
+    # 습도
     humidity = item["hm"]
 
+    # 강수량
     rainfall = item["rn"]
+
+    # 풍속
     wind_speed = item["ws"]
 
-except:
-    pass
+    print()
+    print("===== 전날 최신 기상 데이터 =====")
+    print("관측시각:", tm)
+
+    print("기온:", temp, "°C")
+    print("습도:", humidity, "%")
+
+    print("강수량:", rainfall, "mm")
+    print("풍속:", wind_speed, "m/s")
+
+except Exception as e:
+
+    print("기상 데이터 조회 실패")
+    print(e)
 
 # ============================================
 # 2. 대기오염 최신 데이터
@@ -129,6 +160,7 @@ try:
         "numOfRows": "100",
         "pageNo": "1",
 
+        # 경북
         "sidoName": "경북",
 
         "ver": "1.0"
@@ -140,10 +172,15 @@ try:
         timeout=30
     )
 
+    print("대기오염 응답코드:", air_response.status_code)
+
     air_data = air_response.json()
+
+    print(air_data)
 
     items = air_data["response"]["body"]["items"]
 
+    # 영천 측정소 찾기
     target = None
 
     for item in items:
@@ -165,14 +202,29 @@ try:
         co = target["coValue"]
         so2 = target["so2Value"]
 
-except:
-    pass
+        print()
+        print("===== 최신 대기오염 데이터 =====")
+
+        print("측정시각:", data_time)
+
+        print("PM10:", pm10)
+        print("PM2.5:", pm25)
+
+        print("O3:", o3)
+        print("NO2:", no2)
+
+        print("CO:", co)
+        print("SO2:", so2)
+
+except Exception as e:
+
+    print("대기오염 데이터 조회 실패")
+    print(e)
 
 
 # ==========================================================
 # 페이지 설정
 # ==========================================================
-
 st.set_page_config(
     page_title="공공 환경 데이터 기반 영천 지역 문화재 훼손 위험 예측",
     page_icon="🏛",
@@ -182,58 +234,24 @@ st.set_page_config(
 # ==========================================================
 # 데이터 불러오기
 # ==========================================================
-
 df = pd.read_csv(
     "data/processed/yc_heritage_detail_enriched.csv"
 )
 
 # ==========================================================
-# 상단 제목 영역
+# 제목
 # ==========================================================
-
 st.markdown("""
-<div style="
-display:flex;
-justify-content:space-between;
-align-items:flex-end;
-margin-bottom:5px;
-">
-
-<div>
-
-<h1 style="
-font-size:30px;
-margin-bottom:2px;
-">
+<h1 style='font-size:30px;'>
 🏛 공공 환경 데이터 기반 영천 지역 문화재 훼손 위험 예측
 </h1>
-
-<div style="
-font-size:16px;
-color:#4b5563;
-margin-top:0px;
-">
-영천 지역 문화재와 공공 환경데이터를 분석하여 문화재 훼손 위험을 사전에 예측하는 데이터 분석 프로젝트 입니다.
-</div>
-
-</div>
-
-<div style="
-font-size:14px;
-color:#6b7280;
-white-space:nowrap;
-margin-bottom:5px;
-background:#f3f4f6;
-padding:6px 14px;
-border-radius:999px;
-">
-제6회 학생 SW·AI 인재양성 프로젝트
-</div>
-
-</div>
 """, unsafe_allow_html=True)
+st.markdown("""
+영천 지역 문화재와 공공 환경데이터를 분석하여 문화재 훼손 위험을 사전에 예측하는 데이터 분석 프로젝트 입니다.
+""")
 
 st.divider()
+
 
 # ============================================
 # 상단 환경 대시보드
@@ -248,15 +266,12 @@ st.markdown("""
 </h3>
 """, unsafe_allow_html=True)
 
-# ==========================================================
-# 컬럼 레이아웃
-# ==========================================================
-
+# 메인 영역
 left, center, right = st.columns([1.4, 2.0, 1.0])
 
-# ==========================================================
+# ============================================
 # 공통 스타일
-# ==========================================================
+# ============================================
 
 card_style = """
 background-color:#f8f9fa;
@@ -295,9 +310,9 @@ position:absolute;
 bottom:20px;
 """
 
-# ==========================================================
+# ============================================
 # 1열 : 기상 환경
-# ==========================================================
+# ============================================
 
 with left:
 
@@ -349,9 +364,9 @@ margin-top:20px;
         unsafe_allow_html=True
     )
 
-# ==========================================================
+# ============================================
 # 2열 : 대기오염 현황
-# ==========================================================
+# ============================================
 
 with center:
 
@@ -413,9 +428,9 @@ margin-top:20px;
         unsafe_allow_html=True
     )
 
-# ==========================================================
+# ============================================
 # 3열 : 문화재 현황
-# ==========================================================
+# ============================================
 
 with right:
 
@@ -451,7 +466,20 @@ with right:
 
 </div>
 
+<div>
+- 
+</div>
+                    
 </div>
         """,
         unsafe_allow_html=True
     )
+
+st.divider()
+
+# ==========================================================
+# 하단 안내
+# ==========================================================
+st.caption(
+    "제6회 학생 SW·AI 인재양성 프로젝트 | 선화여고 - 영천 헤리티지 AI 탐구단"
+)

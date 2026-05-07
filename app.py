@@ -259,16 +259,20 @@ st.divider()
 
 st.subheader("🌿 영천 문화재 보존 환경 현황")
 
-# 메인 영역
-left, center, right = st.columns([1.4, 2.2, 1.0])
+# 메인 3영역
+left, center, right = st.columns([1.5, 2.2, 1.1])
 
+# ============================================
 # 공통 박스 스타일
+# ============================================
+
 box_style = """
-    background-color:#f8f9fa;
-    padding:20px;
-    border-radius:18px;
-    border:1px solid #e6e6e6;
-    box-shadow:0 4px 10px rgba(0,0,0,0.05);
+background-color:#f8f9fa;
+padding:20px;
+border-radius:18px;
+border:1px solid #e6e6e6;
+box-shadow:0 4px 10px rgba(0,0,0,0.05);
+height:100%;
 """
 
 # ============================================
@@ -281,41 +285,27 @@ with left:
         f"""
         <div style="{box_style}">
             <h3>🌦 기상 환경</h3>
+
+            <hr>
+
+            <p><b>🌡 기온</b> : {temp} °C</p>
+
+            <p><b>💧 습도</b> : {humidity} %</p>
+
+            <p><b>🌧 강수량</b> : {rainfall} mm</p>
+
+            <p><b>💨 풍속</b> : {wind_speed} m/s</p>
+
+            <br>
+
+            <small>⏱ 측정 시각 : {tm}</small>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    w1, w2 = st.columns(2)
-
-    with w1:
-
-        st.metric(
-            "🌡 기온",
-            f"{temp} °C"
-        )
-
-        st.metric(
-            "🌧 강수량",
-            f"{rainfall} mm"
-        )
-
-    with w2:
-
-        st.metric(
-            "💧 습도",
-            f"{humidity} %"
-        )
-
-        st.metric(
-            "💨 풍속",
-            f"{wind_speed} m/s"
-        )
-
-    st.caption(f"⏱ 기상 측정 시각: {tm}")
-
 # ============================================
-# 2열 : 대기오염
+# 2열 : 대기오염 현황
 # ============================================
 
 with center:
@@ -324,29 +314,39 @@ with center:
         f"""
         <div style="{box_style}">
             <h3>🌫 대기오염 현황</h3>
+
+            <hr>
+
+            <div style="
+                display:grid;
+                grid-template-columns:1fr 1fr 1fr;
+                gap:10px;
+            ">
+
+                <div>
+                    <p><b>PM10</b><br>{pm10}</p>
+                    <p><b>O₃</b><br>{o3}</p>
+                </div>
+
+                <div>
+                    <p><b>PM2.5</b><br>{pm25}</p>
+                    <p><b>NO₂</b><br>{no2}</p>
+                </div>
+
+                <div>
+                    <p><b>CO</b><br>{co}</p>
+                    <p><b>SO₂</b><br>{so2}</p>
+                </div>
+
+            </div>
+
+            <br>
+
+            <small>⏱ 측정 시각 : {data_time}</small>
         </div>
         """,
         unsafe_allow_html=True
     )
-
-    a1, a2, a3 = st.columns(3)
-
-    with a1:
-
-        st.metric("PM10", pm10)
-        st.metric("O₃", o3)
-
-    with a2:
-
-        st.metric("PM2.5", pm25)
-        st.metric("NO₂", no2)
-
-    with a3:
-
-        st.metric("CO", co)
-        st.metric("SO₂", so2)
-
-    st.caption(f"⏱ 대기질 측정 시각: {data_time}")
 
 # ============================================
 # 3열 : 문화재 현황
@@ -358,19 +358,23 @@ with right:
         f"""
         <div style="{box_style}">
             <h3>🏛 문화재 현황</h3>
+
+            <hr>
+
+            <p>
+                <b>분석 문화재 수</b><br>
+                {len(df)}개
+            </p>
+
+            <br>
+
+            <p>
+                <b>⚠ 고위험 문화재</b><br>
+                18개
+            </p>
         </div>
         """,
         unsafe_allow_html=True
-    )
-
-    st.metric(
-        "분석 문화재 수",
-        f"{len(df)}개"
-    )
-
-    st.metric(
-        "⚠ 고위험 문화재",
-        "18개"
     )
 
 st.divider()

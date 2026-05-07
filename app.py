@@ -312,44 +312,163 @@ with left:
 
     st.markdown(
         f"""
-<div style="{card_style}; position:relative;">
+<div style="
+background-color:#f8f9fa;
+padding:22px;
+border-radius:20px;
+border:1px solid #e5e7eb;
+box-shadow:0 4px 12px rgba(0,0,0,0.05);
+height:340px;
+position:relative;
+">
 
-<div style="{title_style}">
+<div style="
+font-size:24px;
+font-weight:700;
+margin-bottom:14px;
+color:#1f2937;
+">
 🌦 기상 환경
 </div>
 
 <hr>
 
-<div style="
-display:grid;
-grid-template-columns:1fr 1fr;
-gap:16px;
+<table style="
+width:100%;
+text-align:center;
+border-collapse:collapse;
 margin-top:20px;
 ">
 
-<div>
-<div style="{label_style}">🌡 기온</div>
-<div style="{value_style}">{temp} °C</div>
+<tr>
+
+<td style="padding:18px;">
+
+<div style="
+font-size:14px;
+color:#6b7280;
+margin-bottom:8px;
+">
+🌡 기온
 </div>
 
-<div>
-<div style="{label_style}">💧 습도</div>
-<div style="{value_style}">{humidity} %</div>
+<div style="
+font-size:34px;
+font-weight:700;
+color:#111827;
+">
+{temp}
 </div>
 
-<div>
-<div style="{label_style}">🌧 강수량</div>
-<div style="{value_style}">{rainfall} mm</div>
+<div style="
+font-size:18px;
+font-weight:600;
+color:#374151;
+">
+°C
 </div>
 
-<div>
-<div style="{label_style}">💨 풍속</div>
-<div style="{value_style}">{wind_speed} m/s</div>
+</td>
+
+<td style="padding:18px;">
+
+<div style="
+font-size:14px;
+color:#6b7280;
+margin-bottom:8px;
+">
+💧 습도
 </div>
 
+<div style="
+font-size:34px;
+font-weight:700;
+color:#111827;
+">
+{humidity}
 </div>
 
-<div style="{time_style}">
+<div style="
+font-size:18px;
+font-weight:600;
+color:#374151;
+">
+%
+</div>
+
+</td>
+
+</tr>
+
+<tr>
+
+<td style="padding:18px;">
+
+<div style="
+font-size:14px;
+color:#6b7280;
+margin-bottom:8px;
+">
+🌧 강수량
+</div>
+
+<div style="
+font-size:34px;
+font-weight:700;
+color:#111827;
+">
+{rainfall}
+</div>
+
+<div style="
+font-size:18px;
+font-weight:600;
+color:#374151;
+">
+mm
+</div>
+
+</td>
+
+<td style="padding:18px;">
+
+<div style="
+font-size:14px;
+color:#6b7280;
+margin-bottom:8px;
+">
+💨 풍속
+</div>
+
+<div style="
+font-size:34px;
+font-weight:700;
+color:#111827;
+">
+{wind_speed}
+</div>
+
+<div style="
+font-size:18px;
+font-weight:600;
+color:#374151;
+">
+m/s
+</div>
+
+</td>
+
+</tr>
+
+</table>
+
+<div style="
+font-size:13px;
+color:#9ca3af;
+position:absolute;
+bottom:18px;
+left:22px;
+">
 ⏱ 측정 시각 : {tm}
 </div>
 

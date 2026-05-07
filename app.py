@@ -273,7 +273,7 @@ padding:22px;
 border-radius:20px;
 border:1px solid #e5e7eb;
 box-shadow:0 4px 12px rgba(0,0,0,0.05);
-height:420px;
+height:350px;
 """
 
 title_style = """

@@ -2,22 +2,7 @@ import streamlit as st
 import pandas as pd
 
 st.title("🧠 AI문화재_해설")
-# =====================================================
-# 메인 제목
-# =====================================================
-st.markdown(
-    """
-    <h1 style="
-        text-align:center;
-        font-size:34px;
-        color:#2c3e50;
-        margin-bottom:20px;
-    ">
-    🤖 AI 문화재 해설
-    </h1>
-    """,
-    unsafe_allow_html=True
-)
+
 
 # =====================================================
 # 데이터 로드

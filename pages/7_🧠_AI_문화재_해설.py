@@ -49,7 +49,7 @@ st.subheader(heritage)
 # CSV 안 이미지 URL 컬럼명 확인 필요
 # 예시: "imageUrl" 또는 "이미지URL"
 
-image_url = row.get("imageUrl", None)
+image_url = row.get("이미지URL", None)
 
 if pd.notna(image_url):
     st.image(

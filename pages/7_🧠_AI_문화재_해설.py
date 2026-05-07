@@ -1,8 +1,18 @@
 import streamlit as st
 import pandas as pd
 
-st.title("🧠 AI문화재_해설")
+# =====================================================
+# 페이지 설정
+# =====================================================
+st.set_page_config(
+    page_title="AI 문화재 해설",
+    layout="wide"
+)
 
+# =====================================================
+# 메인 제목
+# =====================================================
+st.title("🤖 AI 문화재 해설")
 
 # =====================================================
 # 데이터 로드
@@ -71,33 +81,6 @@ try:
     ].iloc[0]
 
     # =================================================
-    # 문화재 제목 카드
-    # =================================================
-    st.markdown(
-        f"""
-        <div style='
-            background-color:#f8f9fa;
-            border:1px solid #e9ecef;
-            border-radius:12px;
-            padding:12px;
-            margin-bottom:18px;
-        '>
-    
-            <h3 style='
-                text-align:center;
-                margin:0;
-                color:#2c3e50;
-                font-size:28px;
-            '>
-                🏛 {heritage}
-            </h3>
-    
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # =================================================
     # 본문 영역
     # =================================================
     left_col, right_col = st.columns([1, 1])
@@ -132,13 +115,13 @@ try:
     with right_col:
 
         st.markdown(
-            """
-            <h2 style="
+            f"""
+            <h2 style='
                 color:#2c3e50;
                 margin-top:0;
-                margin-bottom:15px;
-                font-size:24px;
-            ">
+                margin-bottom:20px;
+                font-size:32px;
+            '>
             📋 {heritage}
             </h2>
             """,
@@ -182,12 +165,12 @@ try:
 
                 st.markdown(
                     f"""
-                    <div style="
+                    <div style='
                         font-weight:700;
                         color:#2c3e50;
                         font-size:16px;
                         padding-top:5px;
-                    ">
+                    '>
                     {key}
                     </div>
                     """,
@@ -198,11 +181,11 @@ try:
 
                 st.markdown(
                     f"""
-                    <div style="
+                    <div style='
                         color:#444;
                         font-size:15px;
                         line-height:1.6;
-                    ">
+                    '>
                     {value}
                     </div>
                     """,
@@ -211,10 +194,10 @@ try:
 
             st.markdown(
                 """
-                <hr style="
+                <hr style='
                     margin:8px 0;
                     border:0.5px solid #eeeeee;
-                ">
+                '>
                 """,
                 unsafe_allow_html=True
             )
@@ -243,14 +226,14 @@ try:
 
         st.markdown(
             f"""
-            <div style="
+            <div style='
                 background-color:white;
                 border:1px solid #eeeeee;
                 border-radius:12px;
                 padding:20px;
                 line-height:1.9;
                 font-size:16px;
-            ">
+            '>
 
                 {content}
 

@@ -401,8 +401,10 @@ try:
                     guide_response.text
                 )
 
-        except Exception:
-
+        #except Exception:
+        except Exception as e:
+            st.error(f"오류 발생: {e}")
+    
             st.error(f"Gemini 오류 상세: {e}")
             #st.error(
             #    "Gemini API 사용량 초과 또는 API 오류 발생"

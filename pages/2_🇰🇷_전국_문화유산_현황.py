@@ -167,8 +167,11 @@ with left:
 
     fig1.update_traces(
 
+        texttemplate=
+        "<b>%{label}</b><br>%{value}개",
+    
         textfont_size=18,
-
+    
         hovertemplate=
         "<b>%{label}</b><br>" +
         "문화유산 수: %{value}개"

@@ -482,7 +482,7 @@ with right2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-left3, right3 = st.columns([1, 1])
+left3, right3 = st.columns(2)
 
 
 # =================================================
@@ -490,7 +490,7 @@ left3, right3 = st.columns([1, 1])
 # fig5
 # =================================================
 
-with right2:
+with right3:
 
     st.markdown("""
     <h3 style="
@@ -585,9 +585,11 @@ with right2:
         use_container_width=True
     )
 # =================================================
-# 경북 지역 국보 / 보물 비율
+# 경북 지역별 국보 / 보물 비율
 # fig6
 # =================================================
+
+
 
 with left3:
 
@@ -596,52 +598,74 @@ with left3:
     font-size:24px;
     margin-bottom:10px;
     ">
-    🏺 경북 지역 국보 · 보물 비율
+    🏺 경북 지역별 국보 · 보물 비율
     </h3>
     """, unsafe_allow_html=True)
 
     # -------------------------------------------------
-    # 국보 / 보물 데이터 추출
+    # 전체 문화유산 개수
     # -------------------------------------------------
 
-    treasure_df = gb_df[
-        gb_df["국가유산종목"].isin(["국보", "보물"])
-    ].copy()
+    total_count = len(gb_df)
 
-    type_count = (
+    # -------------------------------------------------
+    # 국보 / 보물 개수
+    # -------------------------------------------------
 
-        treasure_df["국가유산종목"]
-        .value_counts()
-        .reset_index()
+    treasure_count = len(
+
+        gb_df[
+            gb_df["국가유산종목"].isin(
+                ["국보", "보물"]
+            )
+        ]
 
     )
 
-    type_count.columns = [
-        "종목",
-        "개수"
-    ]
+    other_count = total_count - treasure_count
+
+    ratio_df = pd.DataFrame({
+
+        "구분": [
+            "국보·보물",
+            "기타 문화유산"
+        ],
+
+        "개수": [
+            treasure_count,
+            other_count
+        ]
+
+    })
 
     # -------------------------------------------------
-    # Pie Chart
+    # Donut Chart
     # -------------------------------------------------
 
     fig6 = px.pie(
 
-        type_count,
+        ratio_df,
 
-        names="종목",
+        names="구분",
 
         values="개수",
 
-        hole=0.45
+        hole=0.5,
+
+        color="구분",
+
+        color_discrete_map={
+
+            "국보·보물": "#0f766e",
+            "기타 문화유산": "#cbd5e1"
+
+        }
 
     )
 
     fig6.update_traces(
 
-        textinfo="percent+label",
-
-        pull=[0.03, 0]
+        textinfo="percent+label+value"
 
     )
 

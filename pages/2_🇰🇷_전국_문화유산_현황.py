@@ -33,6 +33,7 @@ st.divider()
 @st.cache_data
 def load_data():
     try:
+        # 실제 환경에 맞춰 경로를 확인하세요.
         df = pd.read_csv("data/raw/all_heritage.csv")
         df.columns = df.columns.str.strip()
         return df
@@ -63,6 +64,7 @@ if df is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.divider()
+
     # =================================================
     # 1행: 전국 분포 (Treemap) & 종목별 현황 (Bubble)
     # =================================================
@@ -111,11 +113,26 @@ if df is not None:
         city_count = gb_df["시군구명"].value_counts().head(15).reset_index()
         city_count.columns = ["시군구명", "개수"]
 
+        # [수정] 영천시 텍스트 강조를 위한 컬러 리스트 생성
+        polar_colors = ['#FF4B4B' if city == '영천시' else '#1E88E5' for city in city_count['시군구명']]
+
         fig3 = px.bar_polar(
             city_count, r="개수", theta="시군구명",
-            color="개수", color_continuous_scale="Tealgrn"
+            color="시군구명", 
+            color_discrete_sequence=polar_colors # 영천시만 붉은색 지정
         )
-        fig3.update_layout(height=500, margin=dict(t=50, b=50), coloraxis_showscale=False)
+        # [강조] 텍스트 라벨 중 영천시만 붉게 표시
+        fig3.update_layout(
+            height=500, margin=dict(t=50, b=50), 
+            showlegend=False,
+            polar=dict(
+                angularaxis=dict(
+                    tickfont=dict(
+                        color=['red' if val == '영천시' else 'black' for val in city_count['시군구명']]
+                    )
+                )
+            )
+        )
         st.plotly_chart(fig3, use_container_width=True)
 
     with row2_right:
@@ -125,7 +142,17 @@ if df is not None:
         heatmap_df = heatmap_df.loc[top_cities]
 
         fig4 = px.imshow(heatmap_df, text_auto=True, color_continuous_scale="YlGnBu", aspect="auto")
-        fig4.update_layout(height=500, margin=dict(t=20, l=10, r=10, b=10), coloraxis_showscale=False)
+        
+        # [강조] Heatmap Y축 라벨 중 영천시만 붉은색으로 설정
+        fig4.update_layout(
+            height=500, margin=dict(t=20, l=10, r=10, b=10), 
+            coloraxis_showscale=False,
+            yaxis=dict(
+                tickfont=dict(
+                    color=['red' if val == '영천시' else 'black' for val in heatmap_df.index]
+                )
+            )
+        )
         st.plotly_chart(fig4, use_container_width=True)
 
     # =================================================
@@ -142,9 +169,8 @@ if df is not None:
             type_ratio.columns = ["종목", "비율"]
             type_ratio["비율"] = type_ratio["비율"] * 100
 
-            
             fig5 = px.line_polar(type_ratio.head(8), r="비율", theta="종목", line_close=True)
-            fig5.update_traces(fill="toself", line_color="#008080")
+            fig5.update_traces(fill="toself", line_color="#FF4B4B") # 영천 특징 그래프는 붉은색 테마 적용
             fig5.update_layout(height=500, margin=dict(t=30, b=30))
             st.plotly_chart(fig5, use_container_width=True)
         else:
@@ -156,7 +182,7 @@ if df is not None:
         heritage_count = gb_df["시군구명"].value_counts().reset_index()
         heritage_count.columns = ["시군구명", "문화유산수"]
 
-        # 2025년 인구 데이터 - KOSIS 국가통계포털 주민등록인구
+        # 2025년 인구 데이터
         actual_pop_data = {
             "시군구명": ["포항시", "경주시", "김천시", "안동시", "구미시", "영주시", "영천시", "상주시", 
                         "문경시", "경산시", "의성군", "청송군", "영양군", "영덕군", "청도군", "고령군", 
@@ -169,13 +195,10 @@ if df is not None:
         density_df = pd.merge(heritage_count, pop_df, on="시군구명", how="inner")
         density_df["밀도"] = (density_df["문화유산수"] / density_df["인구"]) * 10000
 
-        # 영천시 강조를 위한 색상 및 라인 설정
-        # 영천시는 붉은색(#FF4B4B), 나머지는 청록색 계열
+        # 영천시 강조 컬러
         colors = ['#FF4B4B' if city == '영천시' else '#008080' for city in density_df['시군구명']]
         
-        
         fig6 = go.Figure()
-
         fig6.add_trace(go.Scatter(
             x=density_df["인구"],
             y=density_df["문화유산수"],
@@ -194,7 +217,7 @@ if df is not None:
         fig6.update_layout(
             height=500,
             margin=dict(t=20, l=10, r=10, b=10),
-            xaxis_title="2025년 주민등록 인구 수(출처:KOSIS 국가통계포털)",
+            xaxis_title="2025년 주민등록 인구 수(KOSIS)",
             yaxis_title="문화유산 보유 수",
             showlegend=False
         )
@@ -208,16 +231,6 @@ if df is not None:
     st.info("""
     #### 💡 데이터 기반 지역 문화유산 분석 및 전략적 통찰
     
-    * **📌 전국 유산 거버넌스 (Treemap & Bubble)**
-        전국적 분포와 종목별 비중을 통해 대한민국 문화유산의 거시적 현황을 파악하고, 각 유산이 가진 위상과 규모를 직관적으로 비교합니다.
-    
-    * **📌 지역별 자산 포트폴리오 (Polar & Heatmap)**
-        경상북도 내 시군별 문화유산 편차와 종목 구성을 분석하여, 각 지역이 보유한 문화 자산의 고유한 정체성과 집중도를 상세히 진단합니다.
-    
-    * **📌 영천시 특화 분석 및 경쟁력 진단 (Radar & Density)**
-        * **🎯 종목 특징:**
-            영천시가 보유한 문화유산의 종목별 강점을 분석하여 지역 특화 콘텐츠 개발을 위한 기초 데이터를 제공합니다.
-        * **🌀 밀도 분석:**
-            2025년 최신 인구 데이터 대비 유산 보유량을 산출하여 인구 소멸 위기 속 문화유산의 보존 가치와 잠재적 밀도를 측정하였습니다.  
-            &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;특히 경북 내 타 시군 대비 영천시의 문화적 위상과 자산 효율성을 한눈에 비교할 수 있도록 설계했습니다.
+    * **📌 3번 그래프:** 경북 상위 15개 시군구 중 **영천시** 라벨과 막대를 붉은색으로 강조하여 시각적 주목도를 높였습니다.
+    * **📌 4번 그래프:** 히트맵의 Y축 리스트에서 **영천시** 이름을 붉은색으로 표시하여 종목별 보유 현황을 쉽게 대조할 수 있습니다.
     """)

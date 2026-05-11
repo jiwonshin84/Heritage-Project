@@ -151,7 +151,7 @@ if df is not None:
             st.warning("영천시 데이터가 존재하지 않습니다.")
 
     with row3_right:
-        st.markdown("### 👥 인구 대비 문화유산 밀도 (2025년 KOSIS 국가통계포털 주민등록인구)")
+        st.markdown("### 👥 인구 대비 문화유산 밀도")
         
         heritage_count = gb_df["시군구명"].value_counts().reset_index()
         heritage_count.columns = ["시군구명", "문화유산수"]
@@ -194,7 +194,7 @@ if df is not None:
         fig6.update_layout(
             height=500,
             margin=dict(t=20, l=10, r=10, b=10),
-            xaxis_title="2025년 인구 수",
+            xaxis_title="2025년 주민등록 인구 수(출처:KOSIS 국가통계포털)",
             yaxis_title="문화유산 보유 수",
             showlegend=False
         )

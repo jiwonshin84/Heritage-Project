@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# [중요] Secrets에서 키를 가져와 Gemini 설정
+# Secrets에서 키를 가져와 Gemini 설정
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     model = genai.GenerativeModel("gemini-2.5-flash")
@@ -20,11 +20,21 @@ else:
     st.stop()
 
 # =====================================================
-# 2. 데이터 처리 함수
+# 2. 세션 상태(Session State) 초기화
+# =====================================================
+# 해설 내용과 답변 내용을 저장할 공간을 만듭니다.
+if "docent_explanation" not in st.session_state:
+    st.session_state.docent_explanation = ""
+if "ai_answer" not in st.session_state:
+    st.session_state.ai_answer = ""
+if "last_heritage" not in st.session_state:
+    st.session_state.last_heritage = ""
+
+# =====================================================
+# 3. 데이터 처리 함수
 # =====================================================
 @st.cache_data
 def load_data():
-    # 데이터 경로가 현재 환경과 일치하는지 확인하세요.
     return pd.read_csv("data/processed/yc_heritage_detail_enriched.csv")
 
 def clean(val):
@@ -33,7 +43,7 @@ def clean(val):
     return str(val).strip()
 
 # =====================================================
-# 3. 메인 UI 렌더링
+# 4. 메인 UI 렌더링
 # =====================================================
 try:
     df = load_data()
@@ -52,6 +62,12 @@ try:
     
     with col_sel2:
         heritage = st.selectbox("🏛 문화재 선택", filtered_df["문화재명(국문)"])
+
+    # 만약 다른 문화재를 선택하면 이전 해설/답변 기록을 초기화합니다.
+    if st.session_state.last_heritage != heritage:
+        st.session_state.docent_explanation = ""
+        st.session_state.ai_answer = ""
+        st.session_state.last_heritage = heritage
 
     row = filtered_df[filtered_df["문화재명(국문)"] == heritage].iloc[0]
 
@@ -76,7 +92,6 @@ try:
     with right_col:
         st.markdown("<h3 style='margin-top:0; color:#2c3e50;'>📋 상세 정보</h3>", unsafe_allow_html=True)
         
-        # ⭐️ HTML 노출 문제 완벽 해결 테이블 (st.markdown 통합)
         st.markdown(f"""
             <style>
                 .info-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #f0f0f0; }}
@@ -106,18 +121,28 @@ try:
     
     with col_ai1:
         if st.button("✨ AI 도슨트 해설 생성"):
-            with st.spinner("AI 해설사가 원고를 작성 중입니다..."):
-                prompt = f"당신은 영천 지역 문화재 전문 도슨트입니다. '{heritage}'에 대해 역사적 배경과 특징을 구어체로 설명해 주세요. 참고 자료: {clean(row.get('내용'))}"
+            with st.spinner("해설을 작성 중입니다..."):
+                prompt = f"당신은 영천 문화재 도슨트입니다. '{heritage}'를 친절하게 설명해주세요. 자료: {clean(row.get('내용'))}"
                 response = model.generate_content(prompt)
-                st.info(response.text)
+                # 세션 상태에 저장
+                st.session_state.docent_explanation = response.text
+        
+        # 저장된 해설이 있으면 항상 표시
+        if st.session_state.docent_explanation:
+            st.info(st.session_state.docent_explanation)
                 
     with col_ai2:
         user_q = st.text_input("💬 궁금한 점을 질문해 보세요.")
         if st.button("질문 전송"):
             if user_q:
-                with st.spinner("답변을 생성 중입니다..."):
+                with st.spinner("답변 생성 중..."):
                     res = model.generate_content(f"{heritage}에 대한 질문: {user_q}\n자료: {clean(row.get('내용'))}")
-                    st.success(res.text)
+                    # 세션 상태에 저장
+                    st.session_state.ai_answer = res.text
+        
+        # 저장된 답변이 있으면 항상 표시
+        if st.session_state.ai_answer:
+            st.success(st.session_state.ai_answer)
 
 except Exception as e:
     st.error(f"오류가 발생했습니다: {e}")

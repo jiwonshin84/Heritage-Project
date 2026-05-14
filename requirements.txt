@@ -5,3 +5,10 @@ folium
 streamlit-folium
 scikit-learn
 google-generativeai
+streamlit
+pandas
+numpy
+requests
+scikit-learn
+matplotlib
+seaborn

@@ -22,6 +22,10 @@ yesterday = now - timedelta(days=1)
 base_date = yesterday.strftime("%Y%m%d")
 base_hour = "23"
 
+# 전역 변수 역할을 할 세션 스테이트 초기화 (위험 문화재 수)
+if 'danger_count' not in st.session_state:
+    st.session_state['danger_count'] = 0
+
 # ==========================================================
 # 1. 모델 학습 로직
 # ==========================================================
@@ -72,7 +76,6 @@ ai_model, feature_names = train_heritage_model()
 # ==========================================================
 # 2. 실시간 데이터 수집 (API)
 # ==========================================================
-# [중략된 기상/대기 API 수집 코드]
 tm, temp, humidity, rainfall, wind_speed = "-", "-", "-", "-", "-"
 try:
     asos_params = {"serviceKey": SERVICE_KEY, "numOfRows": "1", "dataType": "JSON", "dataCd": "ASOS", "dateCd": "HR", "startDt": base_date, "startHh": base_hour, "endDt": base_date, "endHh": base_hour, "stnIds": "281"}
@@ -101,13 +104,39 @@ value_style = "font-size:22px; font-weight:700; color:#111827; margin-bottom:18p
 time_style = "font-size:13px; color:#9ca3af; margin-top:12px; position:absolute; bottom:20px;"
 
 # ==========================================================
-# 4. 메인 화면 구성
+# 4. 분석 엔진 (UI 표시 전 미리 계산하여 전역변수 확보)
+# ==========================================================
+heritage_df = pd.read_csv("data/processed/yc_heritage_feature.csv")
+res_df = pd.DataFrame()
+
+if ai_model:
+    def safe_f(v):
+        try: return float(v)
+        except: return 0.0
+
+    curr_env = {'temp': safe_f(temp), 'humidity': safe_f(humidity), 'rainfall': safe_f(rainfall), 'wind': safe_f(wind_speed), 'pm10': safe_f(pm10), 'pm25': safe_f(pm25), 'so2': safe_f(so2), 'no2': safe_f(no2), 'co': safe_f(co), 'o3': safe_f(o3)}
+    mat_map = {'목조':0, '석조':1, '금속':2, '벽화':3}; exp_map = {'실외':0, '실내':1, '반실외':2}
+    
+    results = []
+    for _, row in heritage_df.iterrows():
+        m_code = mat_map.get(str(row['재질']).strip(), 4); e_code = exp_map.get(str(row['노출형태']).strip(), 0)
+        input_v = pd.DataFrame([{**curr_env, 'mat_code': m_code, 'exp_code': e_code}])
+        pred = ai_model.predict(input_v[feature_names])[0]; prob = ai_model.predict_proba(input_v[feature_names])[0]
+        results.append({'문화재명': row['문화재명(국문)'], '재질': row['재질'], '노출': row['노출형태'], '위험수치': round(prob[2] * 100, 1), '등급': pred})
+    
+    res_df = pd.DataFrame(results)
+    cnt_safe = len(res_df[res_df['등급']==0]); cnt_warn = len(res_df[res_df['등급']==1]); cnt_dang = len(res_df[res_df['등급']==2])
+    
+    # 전역 세션 스테이트에 위험 갯수 저장 (이후 상단 카드에서 참조)
+    st.session_state['danger_count'] = cnt_dang
+
+# ==========================================================
+# 5. 메인 화면 구성 (UI)
 # ==========================================================
 st.markdown("<h1 style='font-size:30px;'>🏛 공공 환경 데이터 기반 영천 지역 문화재 훼손 위험 예측</h1>", unsafe_allow_html=True)
 st.divider()
 
-# 환경 데이터 카드 섹션
-st.markdown('<h3 style="font-size:22px; margin-bottom:15px;">🌿 실시간 영천 환경 지표</h3>', unsafe_allow_html=True)
+st.markdown('<h3 style="font-size:22px; margin-bottom:15px;">🌿 실시간 영천 환경 지표 및 분석 요약</h3>', unsafe_allow_html=True)
 left, center, right = st.columns([1.4, 2.0, 1.0])
 
 with left:
@@ -126,48 +155,32 @@ with center:
     </div><div style="{time_style}">⏱ {data_time}</div></div>""", unsafe_allow_html=True)
 
 with right:
-    heritage_df = pd.read_csv("data/processed/yc_heritage_feature.csv")
-    st.markdown(f"""<div style="{card_style}; position:relative;"><div style="{title_style}">🏛 분석 대상</div><hr><div style="margin-top:20px;">
-    <div style="{label_style}">영천시 국가유산</div><div style="{value_style}">{len(heritage_df)}개</div><br>
-    <div style="{label_style}">📍 분석 지역</div><div style="{value_style}">경북 영천시</div></div></div>""", unsafe_allow_html=True)
+    # 전역변수(st.session_state)에 저장된 위험 문화재 갯수를 카드에 표시
+    st.markdown(f"""<div style="{card_style}; position:relative;"><div style="{title_style}">🏛 문화재 현황</div><hr><div style="margin-top:20px;">
+    <div style="{label_style}">분석 문화재 수</div><div style="{value_style}">{len(heritage_df)}개</div><br>
+    <div style="{label_style}">🚨 고위험 문화재 (현재)</div><div style="{value_style}; color:#C62828;">{st.session_state['danger_count']}개</div></div>
+    <div style="{time_style}">📍 경북 영천시</div></div>""", unsafe_allow_html=True)
 
 st.divider()
 
 # ==========================================================
-# 5. AI 분석 및 결과 카드
+# 6. AI 분석 결과 카드 섹션
 # ==========================================================
-if ai_model:
-    def safe_f(v):
-        try: return float(v)
-        except: return 0.0
-
-    curr_env = {'temp': safe_f(temp), 'humidity': safe_f(humidity), 'rainfall': safe_f(rainfall), 'wind': safe_f(wind_speed), 'pm10': safe_f(pm10), 'pm25': safe_f(pm25), 'so2': safe_f(so2), 'no2': safe_f(no2), 'co': safe_f(co), 'o3': safe_f(o3)}
-    mat_map = {'목조':0, '석조':1, '금속':2, '벽화':3}; exp_map = {'실외':0, '실내':1, '반실외':2}
-    
-    results = []
-    for _, row in heritage_df.iterrows():
-        m_code = mat_map.get(str(row['재질']).strip(), 4); e_code = exp_map.get(str(row['노출형태']).strip(), 0)
-        input_v = pd.DataFrame([{**curr_env, 'mat_code': m_code, 'exp_code': e_code}])
-        pred = ai_model.predict(input_v[feature_names])[0]; prob = ai_model.predict_proba(input_v[feature_names])[0]
-        results.append({'문화재명': row['문화재명(국문)'], '재질': row['재질'], '노출': row['노출형태'], '위험수치': round(prob[2] * 100, 1), '등급': pred})
-    
-    res_df = pd.DataFrame(results)
-    cnt_safe = len(res_df[res_df['등급']==0]); cnt_warn = len(res_df[res_df['등급']==1]); cnt_dang = len(res_df[res_df['등급']==2])
-
-    # 판정 결과 카드 섹션
+if not res_df.empty:
     st.markdown('<h3 style="font-size:22px; margin-bottom:15px;">📊 AI 위험도 판정 통계</h3>', unsafe_allow_html=True)
     s1, s2, s3 = st.columns(3)
     s1.markdown(f'<div style="{stat_card_style} background-color:#2E7D32;"><h4>✅ 안전</h4><span style="font-size:30px; font-weight:bold;">{cnt_safe}</span> 건</div>', unsafe_allow_html=True)
     s2.markdown(f'<div style="{stat_card_style} background-color:#F9A825;"><h4>⚠️ 주의</h4><span style="font-size:30px; font-weight:bold;">{cnt_warn}</span> 건</div>', unsafe_allow_html=True)
-    s3.markdown(f'<div style="{stat_card_style} background-color:#C62828;"><h4>🚨 위험</h4><span style="font-size:30px; font-weight:bold;">{cnt_dang}</span> 건</div>', unsafe_allow_html=True)
+    s3.markdown(f'<div style="{stat_card_style} background-color:#C62828;"><h4>🚨 위험</h4><span style="font-size:30px; font-weight:bold;">{st.session_state["danger_count"]}</span> 건</div>', unsafe_allow_html=True)
 
     st.write("")
+    st.write("#### 🔎 상세 분석 리스트")
     st.dataframe(
         res_df.assign(판정=res_df['등급'].map({0:'안전', 1:'주의', 2:'위험'})).sort_values('위험수치', ascending=False),
         column_config={"위험수치": st.column_config.ProgressColumn("훼손 위험 지수", min_value=0, max_value=100, format="%f%%")},
         use_container_width=True, hide_index=True
     )
 else:
-    st.error("데이터 로드 실패")
+    st.error("분석 데이터를 불러오지 못했습니다.")
 
 st.caption("제6회 학생 SW·AI 인재양성 프로젝트 | 선화여고 - 영천 헤리티지 AI 탐구단")

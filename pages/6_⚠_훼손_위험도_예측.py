@@ -4,172 +4,216 @@ import numpy as np
 import requests
 import os
 from sklearn.ensemble import RandomForestClassifier
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # ============================================================
-# 1. 페이지 설정 및 제목
+# 0. 페이지 설정 및 디자인
 # ============================================================
-st.set_page_config(page_title="문화재 훼손 위험 예측 시스템", layout="wide")
-st.title("🚨 실시간 기반 문화재 훼손 위험 예측")
-st.markdown("최신 기상 및 대기오염 데이터를 분석하여 재질별 위험 등급을 산출합니다.")
+st.set_page_config(page_title="영천 문화재 훼손 위험 예측", layout="wide")
+
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("🏛️ 영천 지역 문화재 훼손 위험 실시간 예측")
+st.markdown("기상청 및 대기오염 공공데이터를 기반으로 현재 시점의 위험도를 분석합니다.")
 
 # ============================================================
-# 2. 데이터 로드 및 전처리 함수
+# 1. 데이터 수집 및 전처리 (최신 데이터 위주)
 # ============================================================
-@st.cache_data
-def load_and_merge_data():
-    # 1) 기상 데이터 수집 (영천 관측소 281, 최근 데이터 위주)
+@st.cache_data(ttl=3600) # 1시간마다 캐시 갱신
+def get_latest_environment_data():
+    # 기상 데이터 수집 (영천 관측소: 281)
     ASOS_SERVICE_KEY = "feb2bfabd299d5d05e89c7aec49ba7e706112603e76549a92e868bd86ec60323"
-    current_year = datetime.now().year
+    today = datetime.now()
+    yesterday = today - timedelta(days=1)
     
-    def fetch_weather(year):
+    # 최근 7일치 기상 수집 (변화율 계산을 위함)
+    def fetch_weather():
         url = "http://apis.data.go.kr/1360000/AsosDalyInfoService/getWthrDataList"
         params = {
-            "serviceKey": ASOS_SERVICE_KEY, "numOfRows": "400", "dataType": "JSON",
-            "dataCd": "ASOS", "dateCd": "DAY", "startDt": f"{year}0101", 
-            "endDt": f"{year}1231", "stnIds": "281"
+            "serviceKey": ASOS_SERVICE_KEY, "numOfRows": "10", "dataType": "JSON",
+            "dataCd": "ASOS", "dateCd": "DAY", 
+            "startDt": yesterday.strftime('%Y%m%d'), 
+            "endDt": today.strftime('%Y%m%d'), "stnIds": "281"
         }
         try:
             res = requests.get(url, params=params).json()
-            return pd.DataFrame(res["response"]["body"]["items"]["item"])
+            items = res["response"]["body"]["items"]["item"]
+            return pd.DataFrame(items)
         except: return pd.DataFrame()
 
-    # 최근 3개년 데이터 수집 (예측 모델 학습용)
-    weather_list = [fetch_weather(y) for y in range(current_year-2, current_year+1)]
-    weather = pd.concat(weather_list, ignore_index=True)
-    
-    # 기상 컬럼 정제
-    weather = weather[["tm", "avgTa", "avgRhm", "sumRn", "avgWs"]].copy()
-    weather.columns = ["date", "temp", "humidity", "rainfall", "wind"]
-    weather["date"] = pd.to_datetime(weather["date"])
+    weather_df = fetch_weather()
+    # 컬럼명 변경 및 타입 변환
+    weather_df = weather_df[["tm", "avgTa", "avgRhm", "sumRn", "avgWs"]].copy()
+    weather_df.columns = ["date", "temp", "humidity", "rainfall", "wind"]
     for col in ["temp", "humidity", "rainfall", "wind"]:
-        weather[col] = pd.to_numeric(weather[col], errors="coerce")
-    weather["rainfall"] = weather["rainfall"].fillna(0)
+        weather_df[col] = pd.to_numeric(weather_df[col], errors="coerce")
+    weather_df["rainfall"] = weather_df["rainfall"].fillna(0)
+    weather_df["date"] = pd.to_datetime(weather_df["date"])
 
-    # 2) 대기오염 데이터 로드 (로컬 경로)
+    # 미세먼지/대기오염 데이터 (사용자 지정 경로)
     air_path = "data/processed/[2019_2025] air_quality.csv"
     if os.path.exists(air_path):
-        air = pd.read_csv(air_path)
-        air["date"] = pd.to_datetime(air["date"])
+        air_df = pd.read_csv(air_path)
+        air_df["date"] = pd.to_datetime(air_df["date"])
+        # 기상과 대기 데이터 병합
+        combined = pd.merge(weather_df, air_df, on="date", how="inner")
+        return combined.sort_values("date", ascending=False)
     else:
-        # 파일이 없을 경우 예시 데이터 생성 (데모용)
-        st.error(f"데이터 파일을 찾을 수 없습니다: {air_path}")
-        return None
+        st.error("대기오염 데이터 파일을 찾을 수 없습니다.")
+        return pd.DataFrame()
 
-    # 병합
-    df = pd.merge(weather, air, on="date", how="inner").sort_values("date")
-    return df
+# 데이터 로드
+df_env = get_latest_environment_data()
 
-# ============================================================
-# 3. 파생 변수 및 모델 학습 로직
-# ============================================================
-def train_model(df_base):
-    # 파생 변수 생성
-    df = df_base.copy()
-    a, b = 17.27, 237.7
-    gamma = (a * df["temp"] / (b + df["temp"])) + np.log(df["humidity"].clip(lower=1) / 100)
-    df["dew_point"] = (b * gamma) / (a - gamma)
-    df["dew_gap"] = df["temp"] - df["dew_point"]
-    df["shock_risk"] = (abs(df["temp"].diff()) + abs(df["humidity"].diff())).fillna(0)
-    df["pm_load"] = (df["pm10"] + df["pm25"]).rolling(3).mean().fillna(0)
-    
-    # 재질 데이터 확장 (시뮬레이션)
-    mats = {'목조':0, '석조':1, '금속':2, '벽화':3}
-    exps = {'실외':0, '실내':1}
-    
-    expanded_rows = []
-    for _, row in df.iterrows():
-        for m_name, m_code in mats.items():
-            for e_name, e_code in exps.items():
-                r = row.to_dict()
-                r.update({'mat_code': m_code, 'exp_code': e_code})
-                
-                # 라벨링 로직 (간소화)
-                score = 0
-                adj = 0.4 if e_name == '실내' else 1.0
-                if m_name == '목조' and r['shock_risk'] > 10: score += 2 * adj
-                if m_name == '석조' and r['rainfall'] > 10 and r['so2'] > 0.005: score += 3 * adj
-                if r['dew_gap'] < 2: score += 2 * adj
-                
-                r['danger_level'] = 2 if score >= 3 else (1 if score >= 1.5 else 0)
-                expanded_rows.append(r)
-                
-    full_df = pd.DataFrame(expanded_rows)
-    features = ['temp', 'humidity', 'rainfall', 'wind', 'pm10', 'pm25', 'so2', 'no2', 'o3', 
-                'mat_code', 'exp_code', 'shock_risk', 'dew_gap', 'pm_load']
-    
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
-    model.fit(full_df[features].fillna(0), full_df['danger_level'])
-    return model
-
-# 데이터 로드 및 모델 준비
-df_raw = load_and_merge_data()
-if df_raw is not None:
-    model = train_model(df_raw)
-    last_data = df_raw.iloc[-1] # 가장 최근 관측치
+if not df_env.empty:
+    # 가장 최신 데이터 (기준일자)
+    latest_row = df_env.iloc[0]
+    base_date = latest_row['date'].strftime('%Y년 %m월 %d일')
 
     # ============================================================
-    # 4. UI 레이아웃
+    # 2. 대시보드 - 현재 환경 현황
+    # ============================================================
+    st.subheader(f"📅 기준 일자: {base_date} (영천 관측소)")
+    
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("🌡️ 평균 기온", f"{latest_row['temp']} °C")
+    m2.metric("💧 평균 습도", f"{latest_row['humidity']} %")
+    m3.metric("☔ 강수량", f"{latest_row['rainfall']} mm")
+    m4.metric("💨 평균 풍속", f"{latest_row['wind']} m/s")
+
+    a1, a2, a3, a4, a5, a6 = st.columns(6)
+    a1.metric("🌫️ PM10", f"{latest_row['pm10']}")
+    a2.metric("😷 PM2.5", f"{latest_row['pm25']}")
+    a3.metric("☁️ CO", f"{latest_row['co']}")
+    a4.metric("☀️ O3", f"{latest_row['o3']}")
+    a5.metric("🚗 NO2", f"{latest_row['no2']}")
+    a6.metric("🏭 SO2", f"{latest_row['so2']}")
+
+    # ============================================================
+    # 3. 모델 학습 (파생변수 포함)
+    # ============================================================
+    def train_model():
+        # 파생변수 생성 (학습용)
+        train_df = df_env.copy()
+        a, b = 17.27, 237.7
+        gamma = (a * train_df["temp"] / (b + train_df["temp"])) + np.log(train_df["humidity"].clip(lower=1) / 100)
+        train_df["dew_point"] = (b * gamma) / (a - gamma)
+        train_df["dew_gap"] = train_df["temp"] - train_df["dew_point"]
+        
+        # 재질별 확장 시뮬레이션 데이터 구축 (Random Forest용)
+        # (현업에서는 실제 훼손 이력 데이터를 사용하나, 여기서는 로직 기반 학습)
+        mats = {'목조':0, '석조':1, '금속':2, '벽화':3}
+        exps = {'실외':0, '실내':1}
+        
+        full_rows = []
+        for _, r in train_df.iterrows():
+            for m_name, m_code in mats.items():
+                for e_name, e_code in exps.items():
+                    row = r.to_dict()
+                    row.update({'mat_code': m_code, 'exp_code': e_code})
+                    
+                    # 라벨링 로직
+                    score = 0
+                    adj = 0.4 if e_name == '실내' else 1.0
+                    if m_name == '목조' and (r['humidity'] > 85 or r['humidity'] < 25): score += 2.5 * adj
+                    if m_name == '석조' and r['rainfall'] > 15 and r['so2'] > 0.005: score += 3.0 * adj
+                    if r['o3'] > 0.08 or r['dew_gap'] < 2: score += 2.0 * adj
+                    
+                    row['danger_level'] = 2 if score >= 2.5 else (1 if score >= 1.2 else 0)
+                    full_rows.append(row)
+        
+        data = pd.DataFrame(full_rows)
+        features = ['temp', 'humidity', 'rainfall', 'wind', 'pm10', 'pm25', 'co', 'o3', 'no2', 'so2', 'mat_code', 'exp_code', 'dew_gap']
+        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model.fit(data[features].fillna(0), data['danger_level'])
+        return model
+
+    model = train_model()
+
+    # ============================================================
+    # 4. 분석 설정 및 위험도 예측
     # ============================================================
     st.divider()
-    col1, col2 = st.columns([1, 2])
+    c1, c2 = st.columns([1, 1.5])
 
-    with col1:
-        st.subheader("🛠 조건 설정")
-        selected_mat = st.selectbox("문화재 재질", ["목조", "석조", "금속", "벽화"])
-        selected_exp = st.radio("노출 형태", ["실외", "실내"])
+    with c1:
+        st.subheader("🔍 분석 대상 설정")
+        mat = st.selectbox("문화재 재질", ["목조", "석조", "금속", "벽화"])
+        exp = st.radio("노출 형태", ["실외", "실내"], horizontal=True)
         
-        st.info(f"📅 기준 일자: {last_data['date'].strftime('%Y-%m-%d')}")
-        
-        # 실시간 수치 조정 (기본값은 최근 관측치)
-        st.write("**현재 환경 수치 (수정 가능)**")
-        t = st.slider("기온 (°C)", -20.0, 40.0, float(last_data['temp']))
-        h = st.slider("습도 (%)", 0, 100, int(last_data['humidity']))
-        p10 = st.number_input("미세먼지(PM10)", 0, 500, int(last_data['pm10']))
-        so2 = st.number_input("이산화황(SO2)", 0.0, 0.1, float(last_data['so2']), format="%.3f")
+        # 선택된 재질의 주요 위험 요인 설명
+        risk_info = {
+            "목조": "고습도(부패) 및 저습도(균열), 결로에 취약",
+            "석조": "산성비(SO2) 및 동결융해, 미세먼지 풍화에 취약",
+            "금속": "습도와 대기오염 물질에 의한 부식 및 산화에 취약",
+            "벽화": "오존(퇴색) 및 온습도 변동에 의한 박락에 취약"
+        }
+        st.info(f"**{mat} 특징:** {risk_info[mat]}")
 
-    with col2:
-        st.subheader("🔮 예측 결과")
+    with c2:
+        st.subheader("🤖 AI 위험도 판정")
         
-        # 예측용 파생변수 계산
-        m_code = {"목조":0, "석조":1, "금속":2, "벽화":3}[selected_mat]
-        e_code = {"실외":0, "실내":1}[selected_exp]
+        # 입력 데이터 구성
+        a, b = 17.27, 237.7
+        current_gamma = (a * latest_row['temp'] / (b + latest_row['temp'])) + np.log(latest_row['humidity'] / 100)
+        current_dew_gap = latest_row['temp'] - ((b * current_gamma) / (a - current_gamma))
         
-        # 간이 파생변수 생성
         input_data = pd.DataFrame([{
-            'temp': t, 'humidity': h, 'rainfall': last_data['rainfall'], 'wind': last_data['wind'],
-            'pm10': p10, 'pm25': last_data['pm25'], 'so2': so2, 'no2': last_data['no2'], 'o3': last_data['o3'],
-            'mat_code': m_code, 'exp_code': e_code,
-            'shock_risk': 0, 'dew_gap': t - (t - ((100-h)/5)), 'pm_load': p10 + last_data['pm25']
+            'temp': latest_row['temp'], 'humidity': latest_row['humidity'], 
+            'rainfall': latest_row['rainfall'], 'wind': latest_row['wind'],
+            'pm10': latest_row['pm10'], 'pm25': latest_row['pm25'], 
+            'co': latest_row['co'], 'o3': latest_row['o3'], 
+            'no2': latest_row['no2'], 'so2': latest_row['so2'],
+            'mat_code': {'목조':0, '석조':1, '금속':2, '벽화':3}[mat],
+            'exp_code': {'실외':0, '실내':1}[exp],
+            'dew_gap': current_dew_gap
         }])
 
         pred = model.predict(input_data)[0]
         prob = model.predict_proba(input_data)[0]
 
-        # 결과 카드 출력
-        colors = ["#28a745", "#ffc107", "#dc3545"]
-        labels = ["안전 (Safe)", "주의 (Caution)", "위험 (Danger)"]
+        # 시각적 결과 표시
+        status = ["안전 (Safe)", "주의 (Caution)", "위험 (Danger)"]
+        colors = ["#2E7D32", "#F9A825", "#C62828"]
         
         st.markdown(f"""
-            <div style="background-color:{colors[pred]}; padding:20px; border-radius:10px; text-align:center;">
-                <h1 style="color:white; margin:0;">{labels[pred]}</h1>
-                <p style="color:white; font-size:1.2em;">위험 확률: {prob[pred]*100:.1f}%</p>
+            <div style="background-color:{colors[pred]}; padding:30px; border-radius:15px; text-align:center;">
+                <h2 style="color:white; margin:0;">{status[pred]}</h2>
+                <p style="color:white; font-size:1.2rem; margin-top:10px;">신뢰도: {prob[pred]*100:.1f}%</p>
             </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        
+        # 위험 등급별 확률 그래프
+        prob_df = pd.DataFrame({'등급': ["안전", "주의", "위험"], '확률': prob})
+        st.bar_chart(data=prob_df, x='등급', y='확률')
 
-        # 상세 지표 시각화
-        st.write("### 📊 등급별 판단 확률")
-        prob_df = pd.DataFrame({
-            '상태': ['안전', '주의', '위험'],
-            '확률': prob
-        })
-        st.bar_chart(data=prob_df, x='상태', y='확률')
-
+    # ============================================================
+    # 5. 관리 가이드라인
+    # ============================================================
     st.divider()
-    st.subheader("💡 관리 권고 사항")
-    if pred == 2:
-        st.error(f"**[{selected_mat}]** 문화재의 부식 및 훼손이 우려되는 환경입니다. 즉시 현장 점검 및 보호 덮개 설치를 권고합니다.")
-    elif pred == 1:
-        st.warning("환경 변화를 주시하십시오. 특히 결로 및 표면 오염에 대한 정기적인 모니터링이 필요합니다.")
-    else:
-        st.success("현재 문화재를 보존하기에 양호한 환경입니다.")
+    st.subheader("📋 향후 관리 제언")
+    
+    advice_col1, advice_col2 = st.columns(2)
+    with advice_col1:
+        if pred == 2:
+            st.error(f"🚨 **긴급 점검 필요**: 현재 {mat} 문화재가 훼손될 가능성이 매우 높습니다. 외부 노출을 최소화하고 보존 환경을 점검하십시오.")
+        elif pred == 1:
+            st.warning(f"⚠️ **주의 관찰**: 환경 요인이 불안정합니다. {mat} 표면의 상태 변화를 정기적으로 모니터링하십시오.")
+        else:
+            st.success(f"✅ **상태 양호**: 현재 {mat} 문화재 보존에 적합한 환경이 유지되고 있습니다.")
+
+    with advice_col2:
+        st.markdown(f"""
+        **주요 분석 근거:**
+        - **재질**: {mat} / **노출**: {exp}
+        - **결로 지수**: {'위험' if current_dew_gap < 3 else '안전'} (차이: {current_dew_gap:.2f})
+        - **오염 부하**: {'높음' if latest_row['pm10'] > 80 else '보통'}
+        """)
+
+else:
+    st.warning("데이터를 불러오는 중입니다. 잠시만 기다려주세요...")
